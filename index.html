@@ -67,8 +67,17 @@ label select{display:block;width:100%;margin-top:4px;padding:12px;border-radius:
 .pf{width:120px;height:120px;border-radius:50%;background:#12303a center/cover;margin:0 auto 8px;display:grid;place-items:center;font:800 40px "Barlow Condensed",sans-serif;color:var(--mute)}.pf.s{width:46px;height:46px;margin:0;font-size:20px;flex:none}
 .pl{display:flex;gap:10px;align-items:center;width:100%;background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:8px;margin-bottom:8px;text-align:left}.pl small{display:block;color:var(--mute)}
 .kv{display:flex;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px solid var(--line)}.kv span:first-child{color:var(--mute)}
+#app.ro .acts,#app.ro .bench,#app.ro .riv,#app.ro .ctl,#app.ro .tok,#app.ro .sw,#app.ro .mini{pointer-events:none}
+.abtn{background:var(--club);color:#031116;padding:8px 12px;border-radius:8px;font-weight:700;margin-left:6px}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js"></script>
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="theme-color" content="#04080b">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="CB Entrevías">
 </head>
 <body>
 <div class="hd"><img id="hl" alt="Escudo del CB Entrevías"><div><h1>CB ENTREVÍAS</h1><p>Partido en directo</p></div><button id="me" class="mini" style="margin-left:auto" onclick="editMe()">Mi perfil</button></div>
@@ -130,7 +139,7 @@ function color(c){S.riv.c=c;draw()}
 function courtSvg(){return '<svg viewBox="0 0 100 92" preserveAspectRatio="none" fill="none" stroke="rgba(58,155,181,.28)" stroke-width=".6"><rect x="1" y="1" width="98" height="90"/><rect x="34" y="1" width="32" height="36"/><circle cx="50" cy="37" r="12"/><path d="M8 1V20Q8 62 50 62Q92 62 92 20V1"/><path d="M42 8H58"/><circle cx="50" cy="11" r="3" stroke="rgba(255,140,60,.6)"/></svg>'}
 function draw(){var a=document.getElementById("app"),sp=P(S.sel),on=sp&&S.court.indexOf(sp.id)>=0,h="";
 document.documentElement.style.setProperty("--riv",S.riv.c);
-h+='<div class="score"><div class="team club"><div class="name"><img src="'+LG+'" width="22" height="22" alt="">CB ENTREVÍAS</div><div class="big">'+club()+'</div><div class="fouls">Faltas <b>'+S.cf+'</b>'+(S.cf>=4?' <span class="bonus">BONUS</span>':'')+'</div></div>';
+h+=adminBar();h+='<div class="score"><div class="team club"><div class="name"><img src="'+LG+'" width="22" height="22" alt="">CB ENTREVÍAS</div><div class="big">'+club()+'</div><div class="fouls">Faltas <b>'+S.cf+'</b>'+(S.cf>=4?' <span class="bonus">BONUS</span>':'')+'</div></div>';
 h+='<div class="mid"><div class="q">'+(S.ended?"FINAL":"CUARTO "+S.q)+'</div><div class="clock">'+fmt(S.secs)+'</div><div class="ctl"><button class="go" onclick="toggle()">'+(S.run?"Pausar":"Iniciar")+'</button><button onclick="endQ()">'+(S.ended?"Cerrado":S.q<4?"Fin de cuarto":"Fin del partido")+'</button></div></div>';
 h+='<div class="team"><div class="name" style="color:'+S.riv.c+'">'+esc(S.rn||"RIVAL").toUpperCase()+'</div><div class="big" style="color:'+S.riv.c+'">'+S.riv.pts+'</div><div class="fouls">Faltas <b>'+S.riv.f+'</b>'+(S.riv.f>=4?' <span class="bonus">BONUS</span>':'')+'</div></div></div>';
 h+=parc();h+='<div class="alert'+(S.msg?' show':'')+(S.lvl==2?' out':'')+'" role="alert">'+S.msg+'</div>';
@@ -149,7 +158,7 @@ h+='<div class="panel"><div class="row"><h2>Rival</h2><span class="sw">'+COL.map
 h+='<div class="panel"><h2>Estadísticas</h2><div class="tw"><table><tr><th>#</th><th>Jugador</th><th>PTS</th><th>REB</th><th>AST</th><th>ROB</th><th>TAP</th><th>F</th></tr>';
 S.p.forEach(function(x){h+='<tr><td>'+x.num+'</td><td>'+x.name+'</td><td>'+x.pts+'</td><td>'+x.reb+'</td><td>'+x.ast+'</td><td>'+x.stl+'</td><td>'+(x.blk||0)+'</td><td>'+x.pf+'</td></tr>'});
 h+='</table></div></div><div style="text-align:center;margin-top:14px"><button class="mini" onclick="reset()">Partido nuevo</button></div>';
-if(S.menu!=null)h+=subHtml();a.innerHTML=h;save()}
+if(S.menu!=null)h+=subHtml();a.className=ROLE==="admin"?"":"ro";a.innerHTML=h;save();schedSave()}
 var M=[];
 function G(i){return document.getElementById(i)}
 function esc(t){return String(t).replace(/[&<>"]/g,function(c){return{"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
@@ -227,6 +236,27 @@ h='<div class="panel"><button class="mini" onclick="plDraw()">‹ Volver</button
 +kv("Valor actual","—")+kv("Estadísticas acumuladas","—")+kv("En quintetos de","—")+'<p class="empty" style="margin-top:8px">El valor, las estadísticas y los quintetos aparecerán cuando se guarden los partidos y se active el Fantasy CBE.</p></div>'}
 else{h='<div class="panel"><h2>Jugadores ('+PL.length+')</h2></div>';PL.forEach(function(p){h+='<button class="pl" onclick="plDraw(\''+p.id+'\')">'+pav(p,1)+'<span><b>'+esc(p.name)+'</b>'+(p.nickname?' «'+esc(p.nickname)+'»':'')+'<small>'+esc(p.position||"")+' · '+pst(p.id)+'</small></span></button>'})}
 el.innerHTML=h}
+
+var ROLE="none",LV=null,PN=null,SVt=null;
+function schedSave(){if(ROLE!=="admin"||SVt)return;SVt=setTimeout(function(){SVt=null;doSave()},1500)}
+async function doSave(){if(ROLE!=="admin"||!S.mid)return;var st=JSON.parse(JSON.stringify(S,function(k,v){return(k==="undo"||k==="menu"||k==="sel"||k==="msg")?undefined:v}));var r=await SB.rpc("live_save",{p_match:S.mid,p_state:st});if(r.error&&/Admin/i.test(r.error.message)){ROLE="viewer"}}
+function applyState(st){S=Object.assign({},st,{sel:S.sel,menu:null,undo:[],msg:S.msg,lvl:S.lvl})}
+async function poll(){if(!S.mid||G("app").hidden)return;
+try{if(!PN){var pr=await SB.from("profiles").select("id,name,nickname");PN={};(pr.data||[]).forEach(function(x){PN[x.id]=x.nickname||x.name})}
+var r=await SB.from("live_matches").select("*").eq("match_id",S.mid).maybeSingle();if(r.error)return;var L=r.data;LV=L;
+ROLE=!L||!L.admin_id?"none":(L.admin_id===UID?"admin":"viewer");
+if(ROLE!=="admin"&&L&&L.state&&L.state.p)applyState(L.state);
+if(L&&L.claim_by===UID&&Date.now()-Date.parse(L.claim_at)>10500)await SB.rpc("live_resolve",{p_match:S.mid})}catch(e){}
+draw()}
+function adminBar(){var L=LV,nm=function(u){return esc((PN&&PN[u])||"Un jugador")},left=function(){return Math.max(0,10-Math.floor((Date.now()-Date.parse(L.claim_at))/1000))},b='<div class="panel" style="padding:8px 10px;margin:0 0 10px">';
+if(ROLE==="admin"){if(L&&L.claim_by){b+='<b>'+nm(L.claim_by)+' pide el control</b> · '+left()+' s<div class="acts" style="grid-template-columns:1fr 1fr;margin-top:6px"><button class="pt" onclick="ans(true)">Aceptar</button><button class="out" onclick="ans(false)">No</button></div>'}else b+='Eres el <b>Admin</b> del partido.'}
+else if(ROLE==="viewer"&&L){if(L.claim_by===UID)b+='Esperando respuesta del Admin… '+left()+' s';else b+='Siguiendo en directo · Admin: <b>'+nm(L.admin_id)+'</b><button class="abtn" onclick="claimCtl()">Pedir control</button>'}
+else b+='Nadie controla el partido. <button class="abtn" onclick="takeAdmin()">Ser Admin</button>';
+return b+'</div>'}
+async function takeAdmin(){var r=await SB.rpc("live_take",{p_match:S.mid});if(r.error){say(r.error.message,1);draw();return}ROLE="admin";await doSave();poll()}
+async function claimCtl(){await SB.rpc("live_claim",{p_match:S.mid});poll()}
+async function ans(v){if(v)await doSave();await SB.rpc("live_answer",{p_match:S.mid,p_accept:v});poll()}
+setInterval(poll,1500);
 boot();
 </script>
 </body>
