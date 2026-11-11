@@ -129,7 +129,7 @@ setInterval(tick,1000);
 function toggle(){S.run=S.run?0:1;draw()}
 var NOTE="";
 function endQ(){if(S.ended)return;var last=S.q>=4;if(!confirm(last?"¿Cerrar el partido? Ya no se podrá apuntar nada más.":"¿Cerrar el cuarto "+S.q+"? Lo que apuntes a partir de ahora irá al cuarto "+(S.q+1)+"."))return;
-if(last){S.run=0;S.ended=Date.now();var m=win();if(m){m.end=S.ended;SB.from("matches").update({ended_at:new Date(S.ended).toISOString()}).eq("id",m.id).then(function(){})}}else{S.q++;S.secs=720;S.run=0;S.cf=0;S.riv.f=0}draw()}
+if(last){S.run=0;S.ended=Date.now();var m=win();if(m){m.end=S.ended;SB.from("matches").update({ended_at:new Date(S.ended).toISOString()}).eq("id",m.id).then(function(){})}closeMatch()}else{S.q++;S.secs=720;S.run=0;S.cf=0;S.riv.f=0}draw()}
 function parc(){var s=[];for(var i=1;i<=S.q;i++){var c=0;S.p.forEach(function(x){c+=((x.qd||{})[i]||{}).pts||0});s.push(i+"º "+c+"-"+((S.riv.q||{})[i]||0))}return '<div class="fouls" style="text-align:center;margin-top:6px">Parciales · '+s.join(" · ")+'</div>'}
 function win(){var n=Date.now(),HR=36e5;for(var i=0;i<M.length;i++){var x=M[i],s=new Date(x.d+"T"+x.t).getTime(),e=x.end||s+2*HR;if(n>=s-HR&&n<=e+HR)return x}return null}
 function gate(){var m=win();if(!m){NOTE="El partido en directo solo está disponible desde 1 hora antes del inicio hasta 1 hora después del final.";return "cal"}
@@ -137,7 +137,7 @@ if(S.mid!==m.id){try{var H=JSON.parse(localStorage.getItem("cbe-hist-v1"))||[];i
 function reset(){if(confirm("¿Empezar un partido nuevo? Se borran las estadísticas actuales.")){var k=S.mid,r=S.rn;S=fresh();S.mid=k;S.rn=r;draw();var mm=win();if(mm)loadRoster(mm)}}
 function color(c){S.riv.c=c;draw()}
 function courtSvg(){return '<svg viewBox="0 0 100 92" preserveAspectRatio="none" fill="none" stroke="rgba(58,155,181,.28)" stroke-width=".6"><rect x="1" y="1" width="98" height="90"/><rect x="34" y="1" width="32" height="36"/><circle cx="50" cy="37" r="12"/><path d="M8 1V20Q8 62 50 62Q92 62 92 20V1"/><path d="M42 8H58"/><circle cx="50" cy="11" r="3" stroke="rgba(255,140,60,.6)"/></svg>'}
-function draw(){var a=document.getElementById("app"),sp=P(S.sel),on=sp&&S.court.indexOf(sp.id)>=0,h="";
+function draw(){S.court.forEach(function(i){var q=i&&P(i);if(q)q.pl=1});var a=document.getElementById("app"),sp=P(S.sel),on=sp&&S.court.indexOf(sp.id)>=0,h="";
 document.documentElement.style.setProperty("--riv",S.riv.c);
 h+=adminBar();h+='<div class="score"><div class="team club"><div class="name"><img src="'+LG+'" width="22" height="22" alt="">CB ENTREVÍAS</div><div class="big">'+club()+'</div><div class="fouls">Faltas <b>'+S.cf+'</b>'+(S.cf>=4?' <span class="bonus">BONUS</span>':'')+'</div></div>';
 h+='<div class="mid"><div class="q">'+(S.ended?"FINAL":"CUARTO "+S.q)+'</div><div class="clock">'+fmt(S.secs)+'</div><div class="ctl"><button class="go" onclick="toggle()">'+(S.run?"Pausar":"Iniciar")+'</button><button onclick="endQ()">'+(S.ended?"Cerrado":S.q<4?"Fin de cuarto":"Fin del partido")+'</button></div></div>';
@@ -172,7 +172,7 @@ function calDraw(){var now=Date.now(),h=(NOTE?'<div class="alert show">'+NOTE+'<
 h+='<div class="panel"><h2>Próximos partidos</h2>';
 if(!M.length)h+='<p class="empty">Todavía no hay partidos en el calendario.</p>';
 M.forEach(function(x){var dt=new Date(x.d+"T"+x.t),past=dt.getTime()<now;
-h+='<div class="m'+(past?' past':'')+'"><div><b>CB Entrevías vs '+esc(x.r)+'</b><small>'+dt.toLocaleDateString("es-ES",{weekday:"long",day:"numeric",month:"long"})+' · '+x.t+'</small></div><button class="mini" onclick="delM(\''+x.id+'\')">Borrar</button></div>'});
+h+='<div class="m'+(past?' past':'')+'"><div><b>CB Entrevías vs '+esc(x.r)+'</b><small>'+dt.toLocaleDateString("es-ES",{weekday:"long",day:"numeric",month:"long"})+' · '+x.t+'</small>'+(RES[x.id]?'<small>Resultado: '+RES[x.id].club_pts+' - '+RES[x.id].rival_pts+'</small>':'')+'</div><span>'+(RES[x.id]?'<button class="abtn" onclick="acta(\''+x.id+'\')">Acta</button>':'')+'<button class="mini" onclick="delM(\''+x.id+'\')">Borrar</button></span></div>'});
 NOTE="";G("cal").innerHTML=h+'</div>'}
 draw();
 setInterval(function(){if(!G("app").hidden&&!win()){NOTE="La ventana del partido en directo ha terminado.";tab("cal")}},15000);
@@ -187,7 +187,7 @@ G("g-h").value=p&&p.height_cm!=null?p.height_cm:"";G("g-b").value=p&&p.birth_dat
 function chip(){if(!ME)return;G("me").innerHTML=(ME.photo_url?'<i class="av" style="background-image:url('+pu(ME.photo_url)+')"></i>':'')+esc(ME.nickname||ME.name)}
 async function loadMe(){var r=await SB.from("profiles").select("*").eq("id",UID).maybeSingle();if(r.error)throw r.error;ME=r.data;if(ME){closeGate();chip();await loadM();tab(win()?"live":"cal")}else showGate(null)}
 async function boot(){try{var s=(await SB.auth.getSession()).data.session;if(!s){var r=await SB.auth.signInAnonymously();if(r.error)throw r.error;s=r.data.session}UID=s.user.id;await loadMe()}catch(e){showGate(null);gE("No se pudo conectar: "+(e.message||e))}}
-async function loadM(redraw){var r=await SB.from("matches").select("*").order("match_date").order("match_time");if(r.error){NOTE="No se pudo cargar el calendario: "+r.error.message}else M=r.data.map(function(x){return{id:x.id,d:x.match_date,t:String(x.match_time).slice(0,5),r:x.rival,end:x.ended_at?Date.parse(x.ended_at):null}});if(redraw&&!G("cal").hidden)calDraw()}
+async function loadM(redraw){var r=await SB.from("matches").select("*").order("match_date").order("match_time");if(r.error){NOTE="No se pudo cargar el calendario: "+r.error.message}else M=r.data.map(function(x){return{id:x.id,d:x.match_date,t:String(x.match_time).slice(0,5),r:x.rival,end:x.ended_at?Date.parse(x.ended_at):null}});var rr=await SB.from("match_results").select("*");RES={};(rr.data||[]).forEach(function(x){RES[x.match_id]=x});if(redraw&&!G("cal").hidden)calDraw()}
 function editMe(){if(ME)showGate(ME)}
 function resize(f){return new Promise(function(ok,ko){var im=new Image();im.onload=function(){var n=360,c=document.createElement("canvas");c.width=c.height=n;var m=Math.min(im.width,im.height),x=(im.width-m)/2,y=(im.height-m)/2;c.getContext("2d").drawImage(im,x,y,m,m,0,0,n,n);c.toBlob(function(b){b?ok(b):ko(new Error("Foto no válida"))},"image/jpeg",.85)};im.onerror=function(){ko(new Error("Foto no válida"))};im.src=URL.createObjectURL(f)})}
 async function saveMe(){var nm=G("g-name").value.trim(),num=G("g-num").value;if(!nm||num===""){gE("Pon al menos tu nombre y tu dorsal.");return}
@@ -249,7 +249,7 @@ if(ROLE!=="admin"&&L&&L.state&&L.state.p)applyState(L.state);
 if(L&&L.claim_by===UID&&Date.now()-Date.parse(L.claim_at)>10500)await SB.rpc("live_resolve",{p_match:S.mid})}catch(e){}
 draw()}
 function adminBar(){var L=LV,nm=function(u){return esc((PN&&PN[u])||"Un jugador")},left=function(){return Math.max(0,10-Math.floor((Date.now()-Date.parse(L.claim_at))/1000))},b='<div class="panel" style="padding:8px 10px;margin:0 0 10px">';
-if(ROLE==="admin"){if(L&&L.claim_by){b+='<b>'+nm(L.claim_by)+' pide el control</b> · '+left()+' s<div class="acts" style="grid-template-columns:1fr 1fr;margin-top:6px"><button class="pt" onclick="ans(true)">Aceptar</button><button class="out" onclick="ans(false)">No</button></div>'}else b+='Eres el <b>Admin</b> del partido.'}
+if(ROLE==="admin"){if(L&&L.claim_by){b+='<b>'+nm(L.claim_by)+' pide el control</b> · '+left()+' s<div class="acts" style="grid-template-columns:1fr 1fr;margin-top:6px"><button class="pt" onclick="ans(true)">Aceptar</button><button class="out" onclick="ans(false)">No</button></div>'}else b+='Eres el <b>Admin</b> del partido.'+(S.ended?' Cerrado. <button class="abtn" onclick="closeMatch()">Reenviar acta</button>':'')}
 else if(ROLE==="viewer"&&L){if(L.claim_by===UID)b+='Esperando respuesta del Admin… '+left()+' s';else b+='Siguiendo en directo · Admin: <b>'+nm(L.admin_id)+'</b><button class="abtn" onclick="claimCtl()">Pedir control</button>'}
 else b+='Nadie controla el partido. <button class="abtn" onclick="takeAdmin()">Ser Admin</button>';
 return b+'</div>'}
@@ -257,6 +257,17 @@ async function takeAdmin(){var r=await SB.rpc("live_take",{p_match:S.mid});if(r.
 async function claimCtl(){await SB.rpc("live_claim",{p_match:S.mid});poll()}
 async function ans(v){if(v)await doSave();await SB.rpc("live_answer",{p_match:S.mid,p_accept:v});poll()}
 setInterval(poll,1500);
+
+var RES={};
+async function closeMatch(){if(ROLE!=="admin"||!S.mid)return;var rows=[];S.p.forEach(function(x){if(!x.uid||!(x.pl||x.qd))return;var qs=Object.keys(x.qd||{});if(!qs.length)qs=["1"];qs.forEach(function(k){var d=(x.qd||{})[k]||{};rows.push({player_id:x.uid,quarter:Number(k),pts:d.pts||0,reb:d.reb||0,ast:d.ast||0,stl:d.stl||0,blk:d.blk||0,pf:d.pf||0,tec:d.tec||0,played:true})})});
+var cp=S.p.reduce(function(a,x){return a+x.pts},0);await doSave();var r=await SB.rpc("match_close",{p_match:S.mid,p_stats:rows,p_club:cp,p_rival:S.riv.pts,p_rival_q:S.riv.q||{}});say(r.error?"No se pudo guardar el acta: "+r.error.message:"Partido cerrado y acta guardada.",r.error?2:1);draw()}
+async function acta(id){var el=G("cal");el.innerHTML='<div class="panel"><p class="empty">Cargando…</p></div>';var m=M.filter(function(x){return x.id==id})[0]||{r:"?"},res=RES[id]||{club_pts:0,rival_pts:0,rival_q:{}},a=await SB.from("match_stats").select("*").eq("match_id",id),pr=await SB.from("profiles").select("id,name,nickname,number"),N={};
+(pr.data||[]).forEach(function(x){N[x.id]=x});var T={},Q={};
+(a.data||[]).forEach(function(r){var t=T[r.player_id]=T[r.player_id]||{pts:0,reb:0,ast:0,stl:0,blk:0,pf:0,tec:0};["pts","reb","ast","stl","blk","pf","tec"].forEach(function(k){t[k]+=r[k]});Q[r.quarter]=(Q[r.quarter]||0)+r.pts});
+var par=[],mx=Math.max.apply(null,Object.keys(Q).concat(Object.keys(res.rival_q||{})).map(Number).concat([1]));for(var i=1;i<=mx;i++)par.push(i+'º '+(Q[i]||0)+'-'+((res.rival_q||{})[i]||0));
+var ids=Object.keys(T).sort(function(x,y){return T[y].pts-T[x].pts}),h='<div class="panel"><button class="mini" onclick="calDraw()">‹ Volver</button><h2 style="margin-top:10px">CB Entrevías '+res.club_pts+' - '+res.rival_pts+' '+esc(m.r)+'</h2><p class="empty">Parciales · '+par.join(" · ")+'</p><div class="tw"><table><tr><th>#</th><th>Jugador</th><th>PTS</th><th>REB</th><th>AST</th><th>ROB</th><th>TAP</th><th>F</th><th>T</th></tr>';
+ids.forEach(function(u){var t=T[u],n=N[u]||{};h+='<tr><td>'+(n.number==null?"":n.number)+'</td><td>'+esc(n.nickname||n.name||"?")+'</td><td>'+t.pts+'</td><td>'+t.reb+'</td><td>'+t.ast+'</td><td>'+t.stl+'</td><td>'+t.blk+'</td><td>'+t.pf+'</td><td>'+t.tec+'</td></tr>'});
+el.innerHTML=h+'</table></div></div>'}
 boot();
 </script>
 </body>
