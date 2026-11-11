@@ -19,7 +19,7 @@ button:focus-visible{outline:3px solid var(--warn);outline-offset:2px}
 .team .big{font-size:64px;font-weight:800;line-height:1}
 .club .big{color:#fff;text-shadow:0 0 24px var(--club)}
 .hd{display:flex;align-items:center;gap:12px;margin-bottom:10px}.hd img{width:64px;height:64px}.hd h1{font-size:30px;font-weight:800;line-height:1}.hd p{margin:2px 0 0;color:var(--mute);font-size:13px}
-body::before{content:"";position:fixed;inset:0;background:var(--logo) center 55%/min(90vw,520px) no-repeat;opacity:.05;pointer-events:none;z-index:-1}
+body::before{content:"";position:fixed;inset:0;background:var(--logo) center 58%/min(100vw,600px) no-repeat;opacity:.12;pointer-events:none;z-index:-1}
 .mid{text-align:center}.mid .q{font:700 16px "Barlow Condensed",sans-serif;color:var(--mute)}
 .mid .clock{font:800 40px "Barlow Condensed",sans-serif;letter-spacing:1px}
 .ctl{display:flex;gap:6px;justify-content:center;margin-top:4px}
@@ -71,6 +71,14 @@ label select{display:block;width:100%;margin-top:4px;padding:12px;border-radius:
 .abtn{background:var(--club);color:#031116;padding:8px 12px;border-radius:8px;font-weight:700;margin-left:6px}
 .hm{display:grid;grid-template-columns:1fr 1fr;gap:10px}.hm button{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:18px 8px;min-height:104px;font:800 22px "Barlow Condensed",sans-serif;text-align:center;line-height:1.1}.hm small{display:block;font:400 13px Barlow,sans-serif;color:var(--mute);margin-top:6px}.hm button.off{opacity:.5}
 .rk{margin-left:auto;font:800 26px "Barlow Condensed",sans-serif;color:var(--club)}.pos{font:800 20px "Barlow Condensed",sans-serif;width:24px;color:var(--mute);flex:none}
+body{background:radial-gradient(130% 50% at 50% -5%,#134c5e 0,#071a21 48%,var(--bg) 78%) no-repeat;min-height:100vh}
+.hd{border-bottom:2px solid var(--club);padding-bottom:8px}
+.hero{display:flex;align-items:center;gap:14px;background:linear-gradient(135deg,#3a9bb5,#1b6a82);border-radius:16px;padding:14px;margin-bottom:12px;color:#fff;box-shadow:0 6px 24px rgba(58,155,181,.25)}.hero img{width:72px;height:72px;flex:none;background:#04080b;border-radius:14px;padding:4px}.hero h2{font-size:28px}.hero p{margin:3px 0 0;font-size:14px}
+.hm button{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;border:0}.hm .wide{grid-column:1/-1;min-height:120px;flex-direction:row;gap:14px}
+.hm .t1{background:linear-gradient(135deg,#3a9bb5,#1f7a94);color:#fff}.hm .t2{background:#f4fbff;color:#04141a}.hm .t2 svg{stroke:#1f7a94}.hm .t3{background:#0b1f27;color:#7fd3e8;border:2px solid #3a9bb5}
+.hm svg{width:34px;height:34px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;flex:none}.hm small{color:inherit;opacity:.85}
+@keyframes gl{0%,100%{box-shadow:0 0 0 0 rgba(111,208,230,.55)}50%{box-shadow:0 0 0 10px rgba(111,208,230,0)}}.hm .glow{animation:gl 2s infinite}@media (prefers-reduced-motion:reduce){.hm .glow{animation:none}}
+.panel{background:rgba(11,21,26,.78)}
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js"></script>
 <link rel="manifest" href="manifest.json">
@@ -286,8 +294,11 @@ async function saveVotes(mid){var arr=[];document.querySelectorAll("#conv [data-
 var e=G("v-e");if(!arr.length){e.textContent="Elige al menos una nota.";return}e.textContent="Guardando…";
 var r=await SB.rpc("cast_votes",{p_match:mid,p_votes:arr});e.textContent=r.error?"No se pudo guardar: "+r.error.message:"Votos guardados ✓"}
 
-function homeDraw(){var draw1=function(){var lv=!!win(),nm=ME?esc(ME.nickname||ME.name):"",t=[["live","Partido en directo",lv?"Abierto ahora":"Se abre 1 h antes",!lv],["cal","Calendario y actas","",0],["conv","Convocatoria y votación","",0],["pl","Jugadores","",0],["mvp","Ranking MVP","",0],["fan","Fantasy CBE","Próximamente",1]],h='<div class="panel"><h2>Hola'+(nm?', '+nm:'')+'</h2></div><div class="hm">';
-t.forEach(function(x){h+='<button class="'+(x[3]?'off':'')+'" onclick="'+(x[0]=="fan"?'':'tab(\''+x[0]+'\')')+'">'+x[1]+(x[2]?'<small>'+x[2]+'</small>':'')+'</button>'});G("home").innerHTML=h+'</div>'};draw1();loadM().then(draw1)}
+function homeDraw(){var IC={live:'<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3v18M5.6 5.6c3 3 3 10.8 0 12.8M18.4 5.6c-3 3-3 10.8 0 12.8"/>',cal:'<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/>',conv:'<circle cx="12" cy="12" r="9"/><path d="M8 12.5l3 3 5-6"/>',pl:'<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20c0-3.5 3-6 6.5-6s6.5 2.5 6.5 6"/><circle cx="17.5" cy="9" r="2.5"/><path d="M17 14.2c2.6.3 4.5 2.4 4.5 5.3"/>',mvp:'<path d="M7 4h10v5a5 5 0 0 1-10 0V4zM7 6H4v1a3 3 0 0 0 3 3M17 6h3v1a3 3 0 0 1-3 3M12 14v4M8 21h8"/>',fan:'<path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1L3.2 9.5l6.1-.9z"/>'};
+var draw1=function(){var lv=!!win(),nm=ME?esc(ME.nickname||ME.name):"",nx=nextM(),sub=nx?'Próximo partido: vs '+esc(nx.r)+' · '+new Date(nx.st).toLocaleDateString("es-ES",{weekday:"long",day:"numeric",month:"long"})+' · '+nx.t:'Todavía no hay próximo partido en el calendario.',
+t=[["live","Partido en directo",lv?"¡Abierto ahora!":"Se abre 1 hora antes","t1 wide"+(lv?" glow":"")],["cal","Calendario y actas","","t2"],["conv","Convocatoria y votación","","t3"],["pl","Jugadores","","t2"],["mvp","Ranking MVP","","t1"],["fan","Fantasy CBE","Próximamente","t3 wide"]],
+h='<div class="hero"><img src="'+LG+'" alt=""><div><h2>¡Hola'+(nm?', '+nm:'')+'!</h2><p>'+sub+'</p></div></div><div class="hm">';
+t.forEach(function(x){h+='<button class="'+x[3]+'" onclick="'+(x[0]=="fan"?'':'tab(\''+x[0]+'\')')+'"><svg viewBox="0 0 24 24">'+IC[x[0]]+'</svg><span>'+x[1]+(x[2]?'<small>'+x[2]+'</small>':'')+'</span></button>'});G("home").innerHTML=h+'</div>'};draw1();loadM().then(draw1)}
 function openPl(id){["app","cal","conv","pl","mvp","home"].forEach(function(i){var e=G(i);if(e)e.hidden=(i!=="pl")});G("bk").hidden=false;plDraw(id)}
 async function mvpDraw(){var el=G("mvp");el.innerHTML='<div class="panel"><p class="empty">Cargando…</p></div>';var a=await SB.from("player_match_points").select("*"),pr=await SB.from("profiles").select("id,name,nickname,number,photo_url");
 if(a.error){el.innerHTML='<div class="panel"><p class="err">'+esc(a.error.message)+'</p></div>';return}
