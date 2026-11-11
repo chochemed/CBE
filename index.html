@@ -212,14 +212,14 @@ S.p=L.map(function(x,i){return{id:i+1,uid:x.id,name:x.nickname||x.name,num:x.num
 async function rsvp(id,v){var q=await SB.from("rsvps").upsert({match_id:id,user_id:UID,going:v,updated_at:new Date().toISOString()});if(q.error){await convDraw();var e=G("c-e");if(e)e.textContent="No se pudo guardar: "+q.error.message;return}convDraw()}
 async function convDraw(){var el=G("conv");el.innerHTML='<div class="panel"><p class="empty">Cargando…</p></div>';await loadM();
 var now=Date.now(),m=null;for(var i=0;i<M.length&&!m;i++){var st=new Date(M[i].d+"T"+M[i].t).getTime();if(st>now-72e5){m=M[i];m.st=st}}
-if(!m){el.innerHTML='<div class="panel"><h2>Convocatoria</h2><p class="empty">No hay ningún partido próximo en el calendario.</p></div>';return}
+if(!m){el.innerHTML='<div class="panel"><h2>Convocatoria</h2><p class="empty">No hay ningún partido próximo en el calendario.</p></div>';voteDraw();return}
 var a=await SB.from("rsvps").select("user_id,going").eq("match_id",m.id),pr=await SB.from("profiles").select("id,name,nickname"),RS=a.data||[],N={};(pr.data||[]).forEach(function(x){N[x.id]=x.nickname||x.name});
 var mine=null,yes=[],no=[],seen={};RS.forEach(function(r){seen[r.user_id]=1;if(r.user_id==UID)mine=r.going;(r.going?yes:no).push(N[r.user_id]||"?")});
 var wait=(pr.data||[]).filter(function(x){return !seen[x.id]}).map(function(x){return x.nickname||x.name}),closed=now>=m.st-36e5,dt=new Date(m.st).toLocaleDateString("es-ES",{weekday:"long",day:"numeric",month:"long"});
 var h='<div class="panel"><h2>¿Vas a jugar contra '+esc(m.r)+' el '+dt+' a las '+m.t+'?</h2><div class="acts" style="grid-template-columns:1fr 1fr;'+(closed?'opacity:.4;pointer-events:none':'')+'"><button class="pt" style="'+(mine===true?'outline:3px solid #fff':'')+'" onclick="rsvp(\''+m.id+'\',true)">Sí</button><button class="out" style="'+(mine===false?'outline:3px solid #fff':'')+'" onclick="rsvp(\''+m.id+'\',false)">No</button></div>';
 h+='<p class="empty" id="c-e">'+(closed?'La convocatoria está cerrada.':mine===null?'Todavía no has respondido.':'Tu respuesta: '+(mine?'Sí':'No')+'. Puedes cambiarla hasta 1 hora antes.')+'</p></div>';
 h+='<div class="panel"><h2>Van ('+yes.length+')</h2><p>'+(yes.map(esc).join(", ")||"—")+'</p><h2 style="margin-top:10px">No van ('+no.length+')</h2><p>'+(no.map(esc).join(", ")||"—")+'</p><h2 style="margin-top:10px">Sin responder ('+wait.length+')</h2><p>'+(wait.map(esc).join(", ")||"—")+'</p></div>';
-el.innerHTML=h}
+el.innerHTML=h;voteDraw()}
 
 var PL=[],PRS={};
 function pu(u){return encodeURI(u||"").replace(/['"()<>]/g,"")}
@@ -249,7 +249,7 @@ if(ROLE!=="admin"&&L&&L.state&&L.state.p)applyState(L.state);
 if(L&&L.claim_by===UID&&Date.now()-Date.parse(L.claim_at)>10500)await SB.rpc("live_resolve",{p_match:S.mid})}catch(e){}
 draw()}
 function adminBar(){var L=LV,nm=function(u){return esc((PN&&PN[u])||"Un jugador")},left=function(){return Math.max(0,10-Math.floor((Date.now()-Date.parse(L.claim_at))/1000))},b='<div class="panel" style="padding:8px 10px;margin:0 0 10px">';
-if(ROLE==="admin"){if(L&&L.claim_by){b+='<b>'+nm(L.claim_by)+' pide el control</b> · '+left()+' s<div class="acts" style="grid-template-columns:1fr 1fr;margin-top:6px"><button class="pt" onclick="ans(true)">Aceptar</button><button class="out" onclick="ans(false)">No</button></div>'}else b+='Eres el <b>Admin</b> del partido.'+(S.ended?' Cerrado. <button class="abtn" onclick="closeMatch()">Reenviar acta</button>':'')}
+if(ROLE==="admin"){if(L&&L.claim_by){b+='<b>'+nm(L.claim_by)+' pide el control</b> · '+left()+' s<div class="acts" style="grid-template-columns:1fr 1fr;margin-top:6px"><button class="pt" onclick="ans(true)">Aceptar</button><button class="out" onclick="ans(false)">No</button></div>'}else b+='Eres el <b>Admin</b> del partido.'+(S.ended?(S.actaOk?' Partido cerrado y acta guardada ✓.':' Acta pendiente de guardar. <button class="abtn" onclick="closeMatch()">Guardar acta</button>'+(S.actaErr?'<br><small>'+esc(S.actaErr)+'</small>':'')):'')}
 else if(ROLE==="viewer"&&L){if(L.claim_by===UID)b+='Esperando respuesta del Admin… '+left()+' s';else b+='Siguiendo en directo · Admin: <b>'+nm(L.admin_id)+'</b><button class="abtn" onclick="claimCtl()">Pedir control</button>'}
 else b+='Nadie controla el partido. <button class="abtn" onclick="takeAdmin()">Ser Admin</button>';
 return b+'</div>'}
@@ -260,7 +260,7 @@ setInterval(poll,1500);
 
 var RES={};
 async function closeMatch(){if(ROLE!=="admin"||!S.mid)return;var rows=[];S.p.forEach(function(x){if(!x.uid||!(x.pl||x.qd))return;var qs=Object.keys(x.qd||{});if(!qs.length)qs=["1"];qs.forEach(function(k){var d=(x.qd||{})[k]||{};rows.push({player_id:x.uid,quarter:Number(k),pts:d.pts||0,reb:d.reb||0,ast:d.ast||0,stl:d.stl||0,blk:d.blk||0,pf:d.pf||0,tec:d.tec||0,played:true})})});
-var cp=S.p.reduce(function(a,x){return a+x.pts},0);await doSave();var r=await SB.rpc("match_close",{p_match:S.mid,p_stats:rows,p_club:cp,p_rival:S.riv.pts,p_rival_q:S.riv.q||{}});say(r.error?"No se pudo guardar el acta: "+r.error.message:"Partido cerrado y acta guardada.",r.error?2:1);draw()}
+var cp=S.p.reduce(function(a,x){return a+x.pts},0);await doSave();var r=await SB.rpc("match_close",{p_match:S.mid,p_stats:rows,p_club:cp,p_rival:S.riv.pts,p_rival_q:S.riv.q||{}});S.actaOk=!r.error;S.actaErr=r.error?r.error.message:"";say(r.error?"No se pudo guardar el acta: "+r.error.message:"Partido cerrado y acta guardada.",r.error?2:1);draw()}
 async function acta(id){var el=G("cal");el.innerHTML='<div class="panel"><p class="empty">Cargando…</p></div>';var m=M.filter(function(x){return x.id==id})[0]||{r:"?"},res=RES[id]||{club_pts:0,rival_pts:0,rival_q:{}},a=await SB.from("match_stats").select("*").eq("match_id",id),pr=await SB.from("profiles").select("id,name,nickname,number"),N={};
 (pr.data||[]).forEach(function(x){N[x.id]=x});var T={},Q={};
 (a.data||[]).forEach(function(r){var t=T[r.player_id]=T[r.player_id]||{pts:0,reb:0,ast:0,stl:0,blk:0,pf:0,tec:0};["pts","reb","ast","stl","blk","pf","tec"].forEach(function(k){t[k]+=r[k]});Q[r.quarter]=(Q[r.quarter]||0)+r.pts});
@@ -268,6 +268,21 @@ var par=[],mx=Math.max.apply(null,Object.keys(Q).concat(Object.keys(res.rival_q|
 var ids=Object.keys(T).sort(function(x,y){return T[y].pts-T[x].pts}),h='<div class="panel"><button class="mini" onclick="calDraw()">‹ Volver</button><h2 style="margin-top:10px">CB Entrevías '+res.club_pts+' - '+res.rival_pts+' '+esc(m.r)+'</h2><p class="empty">Parciales · '+par.join(" · ")+'</p><div class="tw"><table><tr><th>#</th><th>Jugador</th><th>PTS</th><th>REB</th><th>AST</th><th>ROB</th><th>TAP</th><th>F</th><th>T</th></tr>';
 ids.forEach(function(u){var t=T[u],n=N[u]||{};h+='<tr><td>'+(n.number==null?"":n.number)+'</td><td>'+esc(n.nickname||n.name||"?")+'</td><td>'+t.pts+'</td><td>'+t.reb+'</td><td>'+t.ast+'</td><td>'+t.stl+'</td><td>'+t.blk+'</td><td>'+t.pf+'</td><td>'+t.tec+'</td></tr>'});
 el.innerHTML=h+'</table></div></div>'}
+
+async function voteDraw(){var el=G("conv"),now=Date.now(),c=null;
+for(var i=M.length-1;i>=0&&!c;i--){var r=RES[M[i].id];if(r&&now<Date.parse(r.closed_at)+1728e5)c=M[i]}
+if(!c)return;var cl=Date.parse(RES[c.id].closed_at)+1728e5;
+var q=await SB.from("rsvps").select("going").eq("match_id",c.id).eq("user_id",UID).maybeSingle();if(!q.data||!q.data.going)return;
+var a=await SB.from("match_stats").select("player_id").eq("match_id",c.id),pr=await SB.from("profiles").select("id,name,nickname,number").order("number"),mv=await SB.from("match_votes").select("player_id,score").eq("match_id",c.id),ids={},mine={};
+(a.data||[]).forEach(function(x){ids[x.player_id]=1});(mv.data||[]).forEach(function(x){mine[x.player_id]=x.score});
+var h='<div class="panel"><h2>Vota a tus compañeros · vs '+esc(c.r)+'</h2><p class="empty">Nota de 1 a 10. Abierta hasta el '+new Date(cl).toLocaleString("es-ES",{weekday:"long",day:"numeric",hour:"2-digit",minute:"2-digit"})+'. Puedes cambiar tus notas hasta entonces.</p>';
+(pr.data||[]).forEach(function(p){if(!ids[p.id])return;var o='<option value="">—</option>';for(var n=1;n<=10;n++)o+='<option value="'+n+'"'+(mine[p.id]===n?' selected':'')+'>'+n+'</option>';
+h+='<label>#'+(p.number==null?"":p.number)+' '+esc(p.nickname||p.name)+'<select data-v="'+p.id+'">'+o+'</select></label>'});
+h+='<button class="save" onclick="saveVotes(\''+c.id+'\')">Guardar votos</button><div class="err" id="v-e"></div></div>';
+el.insertAdjacentHTML("afterbegin",h)}
+async function saveVotes(mid){var arr=[];document.querySelectorAll("#conv [data-v]").forEach(function(x){if(x.value!=="")arr.push({player_id:x.getAttribute("data-v"),score:Number(x.value)})});
+var e=G("v-e");if(!arr.length){e.textContent="Elige al menos una nota.";return}e.textContent="Guardando…";
+var r=await SB.rpc("cast_votes",{p_match:mid,p_votes:arr});e.textContent=r.error?"No se pudo guardar: "+r.error.message:"Votos guardados ✓"}
 boot();
 </script>
 </body>
