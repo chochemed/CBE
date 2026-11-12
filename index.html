@@ -319,10 +319,27 @@ if(me&&me.is_manager)h+='<div class="panel"><h2>Gestor</h2><p>Han votado <b>'+P.
 else{var q=await SB.from("player_prices").select("*"),B={};(q.data||[]).forEach(function(r){if(!B[r.player_id]||r.round>B[r.player_id].round)B[r.player_id]=r});
 h+='<p class="empty">Mercado de jugadores. Precios de salida; se actualizarán tras cada partido. El quinteto del Fantasy se activará próximamente.</p></div>';
 L.filter(function(p){return B[p.id]}).sort(function(x,y){return B[y.id].price-B[x.id].price}).forEach(function(p){h+='<button class="pl" onclick="openPl(\''+p.id+'\')">'+pav(p,1)+'<span><b>'+esc(p.nickname||p.name)+'</b><small>#'+(p.number==null?"":p.number)+'</small></span><span class="rk">'+B[p.id].price+' M</span></button>'})}
-el.innerHTML=h}
+el.innerHTML=h;if(P.closed)lineupDraw()}
 async function saveInitial(){var arr=[];document.querySelectorAll("#fan [data-iv]").forEach(function(x){if(x.value!=="")arr.push({player_id:x.getAttribute("data-iv"),score:Number(x.value)})});var e=G("f-e");if(!arr.length){e.textContent="Elige al menos una nota.";return}e.textContent="Guardando…";
 var r=await SB.rpc("cast_initial",{p_votes:arr});e.textContent=r.error?"No se pudo guardar: "+r.error.message:"Notas guardadas ✓"}
 async function closeInitial(){if(!confirm("¿Cerrar la encuesta inicial y calcular los precios? No se podrá volver a abrir."))return;var r=await SB.rpc("close_initial");if(r.error){alert(r.error.message);return}fanDraw()}
+
+var LU={mid:null,size:3,cap:65,P:[],sel:[],closed:false,n:0,m:null,N:{}};
+async function lineupDraw(){var el=G("fan"),m=nextM();el.insertAdjacentHTML("afterbegin",'<div id="lu"></div>');var lu=G("lu");
+if(!m){lu.innerHTML='<div class="panel"><h2>Mi quinteto</h2><p class="empty">No hay ningún partido próximo en el calendario.</p></div>';return}
+var info=await SB.rpc("lineup_info",{p_match:m.id}),mine=await SB.from("fantasy_lineups").select("players").eq("match_id",m.id).eq("manager_id",UID).maybeSingle(),pr=await SB.from("profiles").select("id,name,nickname,number");
+if(info.error||!info.data){lu.innerHTML='<div class="panel"><h2>Mi quinteto</h2><p class="err">'+esc(info.error?info.error.message:"No disponible")+'</p></div>';return}
+var I=info.data,N={};(pr.data||[]).forEach(function(x){N[x.id]=x});
+LU={mid:m.id,m:m,size:I.size,cap:I.cap,bonus:I.bonus,n:I.n,N:N,P:(I.players||[]).filter(function(x){return x.price!=null}),sel:(LU.mid==m.id&&LU.sel.length)?LU.sel:((mine.data&&mine.data.players)||[]),closed:Date.now()>=m.st-36e5};luRender()}
+function luTotal(){var t=0;LU.sel.forEach(function(id){LU.P.forEach(function(x){if(x.id==id)t+=x.price})});return t}
+function luRender(){var lu=G("lu");if(!lu)return;var tot=luTotal(),h='<div class="panel"><h2>Mi quinteto · vs '+esc(LU.m.r)+'</h2><p class="empty">Convocados: '+LU.n+' · Quinteto de '+LU.size+' · Presupuesto '+LU.cap+' M'+(LU.bonus?' (incluye 20 M extra)':'')+'</p>';
+if(LU.n<3)h+='<p class="err">Hacen falta al menos 3 convocados para montar quinteto.</p>';
+h+='<p><b>Total '+tot+' / '+LU.cap+' M</b> · elegidos '+LU.sel.length+' de '+LU.size+(tot>LU.cap?' · <span class="err">te pasas '+(tot-LU.cap)+' M</span>':'')+'</p></div>';
+LU.P.slice().sort(function(x,y){return y.price-x.price}).forEach(function(x){var n=LU.N[x.id]||{},on=LU.sel.indexOf(x.id)>=0;h+='<button class="pl" style="'+(on?'outline:3px solid var(--club)':'')+'" onclick="luTog(\''+x.id+'\')"><span class="pos">'+(on?'✓':'')+'</span><span><b>'+esc(n.nickname||n.name||"?")+'</b><small>#'+(n.number==null?"":n.number)+'</small></span><span class="rk">'+x.price+' M</span></button>'});
+h+='<button class="save" '+((LU.closed||LU.sel.length!=LU.size)?'disabled style="opacity:.4"':'')+' onclick="luConfirm()">'+(LU.closed?'Alineación cerrada':'Confirmar quinteto')+'</button><div class="err" id="lu-e"></div>';lu.innerHTML=h}
+function luTog(id){if(LU.closed)return;var i=LU.sel.indexOf(id);if(i>=0)LU.sel.splice(i,1);else if(LU.sel.length<LU.size)LU.sel.push(id);luRender()}
+async function luConfirm(){var tot=luTotal(),ov=Math.max(0,tot-LU.cap);if(ov>0){var wk=Math.ceil(ov/5);if(!confirm("Te pasas "+ov+" millones del presupuesto: durante "+wk+" semana"+(wk>1?"s":"")+" tendrás 5 millones menos. ¿Confirmas?"))return}
+var e=G("lu-e");e.textContent="Guardando…";var r=await SB.rpc("confirm_lineup",{p_match:LU.mid,p_players:LU.sel});e.textContent=r.error?"No se pudo guardar: "+r.error.message:"Quinteto confirmado ✓ (puedes cambiarlo hasta 1 hora antes)"}
 boot();
 </script>
 </body>
