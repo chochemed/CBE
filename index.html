@@ -361,11 +361,13 @@ async function doLogin(){var u=G("a-u").value,p=G("a-p").value,e=G("a-e");if(!ok
 async function logout(){await SB.auth.signOut();location.reload()}
 async function regAuth(){var ss=(await SB.auth.getSession()).data.session;if(ss&&!ss.user.is_anonymous){UID=ss.user.id;return}
 var u=G("g-u").value,pw=G("g-pw").value;if(!okUser(u))throw new Error("Elige un usuario de al menos 3 letras o números.");if(pw.length<6)throw new Error("La clave debe tener al menos 6 caracteres.");
-if(ss){var up=await SB.auth.updateUser({email:em(u),password:pw});if(up.error)throw new Error(/registered|exists/i.test(up.error.message)?"Ese usuario ya existe. Elige otro.":up.error.message);UID=ss.user.id;return}
-var su=await SB.auth.signUp({email:em(u),password:pw});if(su.error)throw new Error(/registered|exists/i.test(su.error.message)?"Ese usuario ya existe. Elige otro o entra con él.":su.error.message);var sess=su.data.session;if(!sess){var si=await SB.auth.signInWithPassword({email:em(u),password:pw});if(si.error)throw new Error("La cuenta necesita confirmación de correo. Avisa al administrador.");sess=si.data.session}UID=sess.user.id}
+if(!ss){var an=await SB.auth.signInAnonymously();if(an.error)throw an.error}
+var lk=await SB.rpc("link_credentials",{p_user:un(u),p_pass:pw});if(lk.error)throw new Error(/ya existe/i.test(lk.error.message)?"Ese usuario ya existe. Elige otro o entra con él.":lk.error.message);
+var si=await SB.auth.signInWithPassword({email:em(u),password:pw});if(si.error)throw si.error;UID=si.data.user.id}
 function showUpgrade(){if(G("upg"))return;var d=document.createElement("div");d.className="modal";d.id="upg";d.style.zIndex=70;d.innerHTML='<div class="box"><h2>Crea tu usuario y clave</h2><p class="empty">Así podrás entrar desde cualquier móvil sin perder tus datos.</p><label>Usuario<input id="u-u" autocapitalize="none"></label><label>Clave (mínimo 6 caracteres)<input id="u-p" type="password"></label><button class="abtn" style="margin:0;text-align:center" onclick="doUpgrade()">Guardar</button><div class="err" id="u-e"></div><button style="text-align:center" onclick="G(\'upg\').remove()">Más tarde</button></div>';document.body.appendChild(d)}
 async function doUpgrade(){var u=G("u-u").value,p=G("u-p").value,e=G("u-e");if(!okUser(u)){e.textContent="Elige un usuario de al menos 3 letras o números.";return}if(p.length<6){e.textContent="La clave debe tener al menos 6 caracteres.";return}e.textContent="Guardando…";
-var r=await SB.auth.updateUser({email:em(u),password:p});if(r.error){e.textContent=/registered|exists/i.test(r.error.message)?"Ese usuario ya existe. Elige otro.":r.error.message;return}if(r.data.user&&r.data.user.new_email){e.textContent="Falta desactivar la confirmación por correo en Supabase.";return}
+var r=await SB.rpc("link_credentials",{p_user:un(u),p_pass:p});if(r.error){e.textContent=/ya existe/i.test(r.error.message)?"Ese usuario ya existe. Elige otro.":r.error.message;return}
+var si=await SB.auth.signInWithPassword({email:em(u),password:p});if(si.error){e.textContent="Usuario creado, pero no se pudo iniciar sesión: "+si.error.message;return}
 G("upg").remove();alert("Listo. Tu usuario es: "+un(u))}
 boot();
 </script>
