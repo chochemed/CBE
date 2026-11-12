@@ -195,7 +195,7 @@ G("g-t").textContent=p?"Mi perfil":"Bienvenido";G("g-go").textContent=p?"Guardar
 G("g-name").value=p?p.name||"":"";G("g-num").value=p&&p.number!=null?p.number:"";G("g-pos").value=p&&p.position?p.position:"Base";
 G("g-h").value=p&&p.height_cm!=null?p.height_cm:"";G("g-b").value=p&&p.birth_date?p.birth_date:"";G("g-nick").value=p?p.nickname||"":"";G("g-photo").value=""}
 function chip(){if(!ME)return;G("me").innerHTML=(ME.photo_url?'<i class="av" style="background-image:url('+pu(ME.photo_url)+')"></i>':'')+esc(ME.nickname||ME.name)}
-async function loadMe(){var r=await SB.from("profiles").select("*").eq("id",UID).maybeSingle();if(r.error)throw r.error;ME=r.data;if(ME){closeGate();chip();await loadM();tab("home")}else showGate(null)}
+async function loadMe(){var r=await SB.from("profiles").select("*").eq("id",UID).maybeSingle();if(r.error)throw r.error;ME=r.data;if(ME){closeGate();chip();await loadM();tab("home");felic()}else showGate(null)}
 async function boot(){try{var s=(await SB.auth.getSession()).data.session;if(!s){var r=await SB.auth.signInAnonymously();if(r.error)throw r.error;s=r.data.session}UID=s.user.id;await loadMe()}catch(e){showGate(null);gE("No se pudo conectar: "+(e.message||e))}}
 async function loadM(redraw){var r=await SB.from("matches").select("*").order("match_date").order("match_time");if(r.error){NOTE="No se pudo cargar el calendario: "+r.error.message}else M=r.data.map(function(x){return{id:x.id,d:x.match_date,t:String(x.match_time).slice(0,5),r:x.rival,end:x.ended_at?Date.parse(x.ended_at):null}});var rr=await SB.from("match_results").select("*");RES={};(rr.data||[]).forEach(function(x){RES[x.match_id]=x});if(redraw&&!G("cal").hidden)calDraw()}
 function editMe(){if(ME)showGate(ME)}
@@ -319,7 +319,7 @@ if(me&&me.is_manager)h+='<div class="panel"><h2>Gestor</h2><p>Han votado <b>'+P.
 else{var q=await SB.from("player_prices").select("*"),B={};(q.data||[]).forEach(function(r){if(!B[r.player_id]||r.round>B[r.player_id].round)B[r.player_id]=r});
 h+='<p class="empty">Mercado de jugadores. Precios de salida; se actualizarán tras cada partido. El quinteto del Fantasy se activará próximamente.</p></div>';
 L.filter(function(p){return B[p.id]}).sort(function(x,y){return B[y.id].price-B[x.id].price}).forEach(function(p){h+='<button class="pl" onclick="openPl(\''+p.id+'\')">'+pav(p,1)+'<span><b>'+esc(p.nickname||p.name)+'</b><small>#'+(p.number==null?"":p.number)+'</small></span><span class="rk">'+B[p.id].price+' M</span></button>'})}
-el.innerHTML=h;if(P.closed)lineupDraw()}
+el.innerHTML=h;if(P.closed){mgrDraw();lineupDraw()}}
 async function saveInitial(){var arr=[];document.querySelectorAll("#fan [data-iv]").forEach(function(x){if(x.value!=="")arr.push({player_id:x.getAttribute("data-iv"),score:Number(x.value)})});var e=G("f-e");if(!arr.length){e.textContent="Elige al menos una nota.";return}e.textContent="Guardando…";
 var r=await SB.rpc("cast_initial",{p_votes:arr});e.textContent=r.error?"No se pudo guardar: "+r.error.message:"Notas guardadas ✓"}
 async function closeInitial(){if(!confirm("¿Cerrar la encuesta inicial y calcular los precios? No se podrá volver a abrir."))return;var r=await SB.rpc("close_initial");if(r.error){alert(r.error.message);return}fanDraw()}
@@ -340,6 +340,16 @@ h+='<button class="save" '+((LU.closed||LU.sel.length!=LU.size)?'disabled style=
 function luTog(id){if(LU.closed)return;var i=LU.sel.indexOf(id);if(i>=0)LU.sel.splice(i,1);else if(LU.sel.length<LU.size)LU.sel.push(id);luRender()}
 async function luConfirm(){var tot=luTotal(),ov=Math.max(0,tot-LU.cap);if(ov>0){var wk=Math.ceil(ov/5);if(!confirm("Te pasas "+ov+" millones del presupuesto: durante "+wk+" semana"+(wk>1?"s":"")+" tendrás 5 millones menos. ¿Confirmas?"))return}
 var e=G("lu-e");e.textContent="Guardando…";var r=await SB.rpc("confirm_lineup",{p_match:LU.mid,p_players:LU.sel});e.textContent=r.error?"No se pudo guardar: "+r.error.message:"Quinteto confirmado ✓ (puedes cambiarlo hasta 1 hora antes)"}
+
+async function mgrDraw(){var el=G("fan");el.insertAdjacentHTML("afterbegin",'<div id="mg"></div>');var mg=G("mg"),a=await SB.from("manager_match_points").select("*"),pr=await SB.from("profiles").select("id,name,nickname,photo_url,number");
+if(a.error){mg.innerHTML="";return}var T={},prov=0;(a.data||[]).forEach(function(r){var t=T[r.manager_id]=T[r.manager_id]||{pts:0,n:0};t.pts+=r.pts;t.n++;if(!r.final)prov=1});
+var L=(pr.data||[]).filter(function(p){return T[p.id]}).sort(function(x,y){return T[y.id].pts-T[x.id].pts}),h='<div class="panel"><h2>Ranking de mánagers</h2><p class="empty">Puntos acumulados de los quintetos'+(prov?' (provisionales hasta cerrar la votación)':'')+'.</p></div>';
+if(!L.length)h+='<div class="panel"><p class="empty">Todavía no hay quintetos puntuados.</p></div>';
+L.forEach(function(p,i){var t=T[p.id];h+='<div class="pl"><span class="pos">'+(i+1)+'</span>'+pav(p,1)+'<span><b>'+esc(p.nickname||p.name)+'</b><small>'+t.n+' jornada'+(t.n==1?'':'s')+'</small></span><span class="rk">'+t.pts+'</span></div>'});mg.innerHTML=h}
+async function felic(){try{var r=await SB.from("match_results").select("match_id,closed_at").order("closed_at",{ascending:false}),lm=null;(r.data||[]).forEach(function(x){if(!lm&&Date.parse(x.closed_at)+1728e5<Date.now())lm=x});if(!lm)return;var key="cbe-fel-"+lm.match_id;if(localStorage.getItem(key))return;localStorage.setItem(key,"1");
+var a=await SB.from("player_match_points").select("player_id,stat_pts,vote_pts"),b=await SB.from("manager_match_points").select("manager_id,pts"),lead=function(rows,k,f){var T={},mx=-1;(rows||[]).forEach(function(x){T[x[k]]=(T[x[k]]||0)+f(x)});Object.keys(T).forEach(function(u){if(T[u]>mx)mx=T[u]});return mx>0&&T[UID]===mx};
+var msg=[];if(lead(a.data,"player_id",function(x){return x.stat_pts+x.vote_pts}))msg.push("Vas el primero en el ranking MVP de la temporada.");if(lead(b.data,"manager_id",function(x){return x.pts}))msg.push("Vas el primero en el Fantasy CBE.");if(!msg.length)return;
+var d=document.createElement("div");d.className="modal";d.style.zIndex=60;d.onclick=function(){d.remove()};d.innerHTML='<div class="box" style="text-align:center"><div style="font-size:64px;color:var(--club)">★</div><h2>¡Enhorabuena!</h2><p>'+msg.join("<br>")+'</p><button class="abtn" style="margin:10px 0 0;text-align:center">¡A por más!</button></div>';document.body.appendChild(d)}catch(e){}}
 boot();
 </script>
 </body>
