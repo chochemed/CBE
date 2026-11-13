@@ -272,7 +272,7 @@ setInterval(poll,1500);
 
 var RES={};
 async function closeMatch(){if(ROLE!=="admin"||!S.mid)return;var rows=[];S.p.forEach(function(x){if(!x.uid||!(x.pl||x.qd))return;var qs=Object.keys(x.qd||{});if(!qs.length)qs=["1"];qs.forEach(function(k){var d=(x.qd||{})[k]||{};rows.push({player_id:x.uid,quarter:Number(k),pts:d.pts||0,reb:d.reb||0,ast:d.ast||0,stl:d.stl||0,blk:d.blk||0,pf:d.pf||0,tec:d.tec||0,played:true})})});
-var cp=S.p.reduce(function(a,x){return a+x.pts},0);await doSave();var r=await SB.rpc("match_close",{p_match:S.mid,p_stats:rows,p_club:cp,p_rival:S.riv.pts,p_rival_q:S.riv.q||{}});S.actaOk=!r.error;S.actaErr=r.error?r.error.message:"";say(r.error?"No se pudo guardar el acta: "+r.error.message:"Partido cerrado y acta guardada.",r.error?2:1);draw()}
+var cp=S.p.reduce(function(a,x){return a+x.pts},0);await doSave();var r=await SB.rpc("match_close",{p_match:S.mid,p_stats:rows,p_club:cp,p_rival:S.riv.pts,p_rival_q:S.riv.q||{}});S.actaOk=!r.error;S.actaErr=r.error?r.error.message:"";if(!r.error)SB.rpc("settle_due");say(r.error?"No se pudo guardar el acta: "+r.error.message:"Partido cerrado y acta guardada.",r.error?2:1);draw()}
 async function acta(id){var el=G("cal");el.innerHTML='<div class="panel"><p class="empty">Cargando…</p></div>';var m=M.filter(function(x){return x.id==id})[0]||{r:"?"},res=RES[id]||{club_pts:0,rival_pts:0,rival_q:{}},a=await SB.from("match_stats").select("*").eq("match_id",id),pr=await SB.from("profiles").select("id,name,nickname,number"),N={};
 (pr.data||[]).forEach(function(x){N[x.id]=x});var T={},Q={};
 (a.data||[]).forEach(function(r){var t=T[r.player_id]=T[r.player_id]||{pts:0,reb:0,ast:0,stl:0,blk:0,pf:0,tec:0};["pts","reb","ast","stl","blk","pf","tec"].forEach(function(k){t[k]+=r[k]});Q[r.quarter]=(Q[r.quarter]||0)+r.pts});
@@ -310,7 +310,7 @@ if(!L.length)h+='<div class="panel"><p class="empty">Todavía no hay partidos pu
 L.forEach(function(p,i){var t=A[p.id];h+='<button class="pl" onclick="openPl(\''+p.id+'\')"><span class="pos">'+(i+1)+'</span>'+pav(p,1)+'<span><b>'+esc(p.nickname||p.name)+'</b><small>'+t.n+' partido'+(t.n==1?'':'s')+' · media '+(t.tot/t.n).toFixed(1)+'</small></span><span class="rk">'+t.tot+'</span></button>'});
 el.innerHTML=h}
 
-async function fanDraw(){var el=G("fan");el.innerHTML='<div class="panel"><p class="empty">Cargando…</p></div>';await SB.rpc("initial_autoclose");var pg=await SB.rpc("initial_progress"),pr=await SB.from("profiles").select("id,name,nickname,number,photo_url,is_manager,active").order("number");
+async function fanDraw(){var el=G("fan");el.innerHTML='<div class="panel"><p class="empty">Cargando…</p></div>';await SB.rpc("initial_autoclose");await SB.rpc("settle_due");var pg=await SB.rpc("initial_progress"),pr=await SB.from("profiles").select("id,name,nickname,number,photo_url,is_manager,active").order("number");
 if(pg.error||pr.error){el.innerHTML='<div class="panel"><p class="err">'+esc((pg.error||pr.error).message)+'</p></div>';return}
 var P=pg.data||{},L=(pr.data||[]).filter(function(p){return p.active!==false}),me=L.filter(function(x){return x.id==UID})[0],h='<div class="panel"><h2>Fantasy CBE</h2>';
 if(!P.closed){var iv=await SB.from("initial_votes").select("player_id,score"),mine={};(iv.data||[]).forEach(function(x){mine[x.player_id]=x.score});
@@ -329,14 +329,14 @@ async function closeInitial(){if(!confirm("¿Cerrar la encuesta inicial y calcul
 var LU={mid:null,size:3,cap:65,P:[],sel:[],closed:false,n:0,m:null,N:{}};
 async function lineupDraw(){var el=G("fan"),m=nextM();el.insertAdjacentHTML("afterbegin",'<div id="lu"></div>');var lu=G("lu");
 if(!m){lu.innerHTML='<div class="panel"><h2>Mi quinteto</h2><p class="empty">No hay ningún partido próximo en el calendario.</p></div>';return}
-var info=await SB.rpc("lineup_info",{p_match:m.id}),mine=await SB.from("fantasy_lineups").select("players").eq("match_id",m.id).eq("manager_id",UID).maybeSingle(),pr=await SB.from("profiles").select("id,name,nickname,number");
+var info=await SB.rpc("lineup_info",{p_match:m.id}),mine=await SB.from("fantasy_lineups").select("players,final_players,settled_at,adjusted,final_over").eq("match_id",m.id).eq("manager_id",UID).maybeSingle(),pr=await SB.from("profiles").select("id,name,nickname,number");
 if(info.error||!info.data){lu.innerHTML='<div class="panel"><h2>Mi quinteto</h2><p class="err">'+esc(info.error?info.error.message:"No disponible")+'</p></div>';return}
 var I=info.data,N={};(pr.data||[]).forEach(function(x){N[x.id]=x});
-LU={mid:m.id,m:m,size:I.size,cap:I.cap,bonus:I.bonus,n:I.n,N:N,P:(I.players||[]).filter(function(x){return x.price!=null}),sel:(LU.mid==m.id&&LU.sel.length)?LU.sel:((mine.data&&mine.data.players)||[]),closed:Date.now()>=m.st-36e5};luRender()}
+LU={mid:m.id,m:m,size:I.size,cap:I.cap,bonus:I.bonus,ded:I.ded||0,adj:!!(mine.data&&mine.data.adjusted),fo:(mine.data&&mine.data.final_over)||0,n:I.n,N:N,P:(I.players||[]).filter(function(x){return x.price!=null}),sel:(LU.mid==m.id&&LU.sel.length)?LU.sel:((mine.data&&((Date.now()>=m.st-36e5&&mine.data.final_players)||mine.data.players))||[]),closed:Date.now()>=m.st-36e5};luRender()}
 function luTotal(){var t=0;LU.sel.forEach(function(id){LU.P.forEach(function(x){if(x.id==id)t+=x.price})});return t}
-function luRender(){var lu=G("lu");if(!lu)return;var tot=luTotal(),h='<div class="panel"><h2>Mi quinteto · vs '+esc(LU.m.r)+'</h2><p class="empty">Convocados: '+LU.n+' · Quinteto de '+LU.size+' · Presupuesto '+LU.cap+' M'+(LU.bonus?' (incluye 20 M extra)':'')+'</p>';
+function luRender(){var lu=G("lu");if(!lu)return;var tot=luTotal(),h='<div class="panel"><h2>Mi quinteto · vs '+esc(LU.m.r)+'</h2><p class="empty">Convocados: '+LU.n+' · Quinteto de '+LU.size+' · Presupuesto '+LU.cap+' M'+(LU.bonus?' (incluye 20 M extra)':'')+(LU.ded?' · menos '+LU.ded+' M de penalización':'')+'</p>';
 if(LU.n<3)h+='<p class="err">Hacen falta al menos 3 convocados para montar quinteto.</p>';
-h+='<p><b>Total '+tot+' / '+LU.cap+' M</b> · elegidos '+LU.sel.length+' de '+LU.size+(tot>LU.cap?' · <span class="err">te pasas '+(tot-LU.cap)+' M</span>':'')+'</p></div>';
+h+='<p><b>Total '+tot+' / '+LU.cap+' M</b> · elegidos '+LU.sel.length+' de '+LU.size+(tot>LU.cap?' · <span class="err">te pasas '+(tot-LU.cap)+' M</span>':'')+'</p>'+(LU.closed&&LU.adj?'<p class="empty">Tu quinteto se ajustó solo a los convocados finales.</p>':'')+(LU.closed&&LU.fo?'<p class="err">Te pasaste '+LU.fo+' M: se descontarán 5 M por semana en los próximos partidos.</p>':'')+'</div>';
 LU.P.slice().sort(function(x,y){return y.price-x.price}).forEach(function(x){var n=LU.N[x.id]||{},on=LU.sel.indexOf(x.id)>=0;h+='<button class="pl" style="'+(on?'outline:3px solid var(--club)':'')+'" onclick="luTog(\''+x.id+'\')"><span class="pos">'+(on?'✓':'')+'</span><span><b>'+esc(n.nickname||n.name||"?")+'</b><small>#'+(n.number==null?"":n.number)+'</small></span><span class="rk">'+x.price+' M</span></button>'});
 h+='<button class="save" '+((LU.closed||LU.sel.length!=LU.size)?'disabled style="opacity:.4"':'')+' onclick="luConfirm()">'+(LU.closed?'Alineación cerrada':'Confirmar quinteto')+'</button><div class="err" id="lu-e"></div>';lu.innerHTML=h}
 function luTog(id){if(LU.closed)return;var i=LU.sel.indexOf(id);if(i>=0)LU.sel.splice(i,1);else if(LU.sel.length<LU.size)LU.sel.push(id);luRender()}
