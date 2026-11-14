@@ -277,7 +277,7 @@ async function acta(id){var el=G("cal");el.innerHTML='<div class="panel"><p clas
 (pr.data||[]).forEach(function(x){N[x.id]=x});var T={},Q={};
 (a.data||[]).forEach(function(r){var t=T[r.player_id]=T[r.player_id]||{pts:0,reb:0,ast:0,stl:0,blk:0,pf:0,tec:0};["pts","reb","ast","stl","blk","pf","tec"].forEach(function(k){t[k]+=r[k]});Q[r.quarter]=(Q[r.quarter]||0)+r.pts});
 var par=[],mx=Math.max.apply(null,Object.keys(Q).concat(Object.keys(res.rival_q||{})).map(Number).concat([1]));for(var i=1;i<=mx;i++)par.push(i+'º '+(Q[i]||0)+'-'+((res.rival_q||{})[i]||0));
-var ids=Object.keys(T).sort(function(x,y){return T[y].pts-T[x].pts}),h='<div class="panel"><button class="mini" onclick="calDraw()">‹ Volver</button><h2 style="margin-top:10px">CB Entrevías '+res.club_pts+' - '+res.rival_pts+' '+esc(m.r)+'</h2><p class="empty">Parciales · '+par.join(" · ")+'</p><div class="tw"><table><tr><th>#</th><th>Jugador</th><th>PTS</th><th>REB</th><th>AST</th><th>ROB</th><th>TAP</th><th>F</th><th>T</th></tr>';
+var ids=Object.keys(T).sort(function(x,y){return T[y].pts-T[x].pts}),h='<div class="panel"><button class="mini" onclick="calDraw()">‹ Volver</button>'+(res.closed_at&&Date.now()<Date.parse(res.closed_at)+36e5?' <button class="abtn" onclick="corOpen(\''+id+'\')">Corregir estadísticas</button>':'')+'<h2 style="margin-top:10px">CB Entrevías '+res.club_pts+' - '+res.rival_pts+' '+esc(m.r)+'</h2><p class="empty">Parciales · '+par.join(" · ")+'</p><div class="tw"><table><tr><th>#</th><th>Jugador</th><th>PTS</th><th>REB</th><th>AST</th><th>ROB</th><th>TAP</th><th>F</th><th>T</th></tr>';
 ids.forEach(function(u){var t=T[u],n=N[u]||{};h+='<tr><td>'+(n.number==null?"":n.number)+'</td><td>'+esc(n.nickname||n.name||"?")+'</td><td>'+t.pts+'</td><td>'+t.reb+'</td><td>'+t.ast+'</td><td>'+t.stl+'</td><td>'+t.blk+'</td><td>'+t.pf+'</td><td>'+t.tec+'</td></tr>'});
 el.innerHTML=h+'</table></div></div>'}
 
@@ -389,6 +389,22 @@ try{var C=window.supabase.createClient("https://riouevlvxugdtycvqrvy.supabase.co
 var an=await C.auth.signInAnonymously();if(an.error)throw an.error;var lk=await C.rpc("link_credentials",{p_user:un(u),p_pass:pw});if(lk.error)throw lk.error;
 var jn=await C.rpc("join_team",{p_code:code,p_name:nm,p_number:Number(num),p_position:G("ad-s").value,p_height:v("ad-h")?Number(v("ad-h")):null,p_weight:null,p_birth:v("ad-b")||null,p_nick:v("ad-k")||null});if(jn.error)throw jn.error;
 await C.auth.signOut();e.textContent="Jugador creado ✓ · Usuario: "+un(u);setTimeout(admDraw,1500)}catch(x){var mm=x.message||String(x);e.textContent=/c[oó]digo/i.test(mm)?"Código del equipo incorrecto.":/ya existe/i.test(mm)?"Ese usuario ya existe.":"Error: "+mm}}
+
+var COR={mid:null,q:1,pid:null};
+var CF=[["pts","Puntos",[-1,1,2,3]],["reb","Rebotes",[-1,1]],["ast","Asistencias",[-1,1]],["stl","Robos",[-1,1]],["blk","Tapones",[-1,1]],["pf","Faltas",[-1,1]],["tec","Técnicas",[-1,1]]];
+function corOpen(id){COR={mid:id,q:1,pid:null};corDraw()}
+async function corDraw(){var el=G("cal");var rs=await SB.from("match_stats").select("*").eq("match_id",COR.mid),pr=await SB.from("profiles").select("id,name,nickname,number,active").order("number"),lg=await SB.from("stat_log").select("*").eq("match_id",COR.mid).order("created_at",{ascending:false}).limit(8),r=RES[COR.mid]||{rival_q:{}},m=M.filter(function(x){return x.id==COR.mid})[0]||{r:"?"};
+var N={},R={},has={};(pr.data||[]).forEach(function(x){N[x.id]=x});(rs.data||[]).forEach(function(x){has[x.player_id]=1;if(x.quarter==COR.q)R[x.player_id]=x});
+var end=Date.parse(r.closed_at)+36e5,open=Date.now()<end,h='<div class="panel"><button class="mini" onclick="acta(\''+COR.mid+'\')">‹ Acta</button><h2 style="margin-top:10px">Corregir · vs '+esc(m.r)+'</h2><p class="empty">'+(open?'Puedes corregir hasta las '+new Date(end).toLocaleTimeString("es-ES",{hour:"2-digit",minute:"2-digit"})+'. Todo cambio queda registrado.':'El plazo de correcciones ha terminado.')+'</p><div>';
+for(var q=1;q<=4;q++)h+='<button class="abtn" style="margin:0 6px 6px 0;'+(q==COR.q?'outline:3px solid #fff':'')+'" onclick="COR.q='+q+';COR.pid=null;corDraw()">Cuarto '+q+'</button>';h+='</div></div>';
+var L=(pr.data||[]).filter(function(p){return p.active!==false||has[p.id]});
+L.forEach(function(p){var x=R[p.id]||{};h+='<button class="pl" style="'+(COR.pid==p.id?'outline:3px solid var(--club)':'')+'" onclick="COR.pid=\''+p.id+'\';corDraw()"><span><b>#'+(p.number==null?"":p.number)+' '+esc(p.nickname||p.name)+'</b><small>PTS '+(x.pts||0)+' · REB '+(x.reb||0)+' · AST '+(x.ast||0)+' · ROB '+(x.stl||0)+' · TAP '+(x.blk||0)+' · F '+(x.pf||0)+' · T '+(x.tec||0)+'</small></span></button>'});
+if(COR.pid&&N[COR.pid]){var x=R[COR.pid]||{};h+='<div class="panel"><h2>'+esc(N[COR.pid].nickname||N[COR.pid].name)+' · cuarto '+COR.q+'</h2>';
+CF.forEach(function(f){h+='<div class="kv"><span>'+f[1]+' <b>'+(x[f[0]]||0)+'</b></span><span>'+f[2].map(function(d){return '<button class="abtn" '+(open?'':'disabled ')+'onclick="corFix(\''+f[0]+'\','+d+')">'+(d>0?'+':'')+d+'</button>'}).join("")+'</span></div>'});h+='</div>'}
+var rq=(r.rival_q||{})[COR.q]||0;h+='<div class="panel"><h2>Rival · cuarto '+COR.q+'</h2><div class="kv"><span>Puntos <b>'+rq+'</b></span><span>'+[-1,1,2,3].map(function(d){return '<button class="abtn" '+(open?'':'disabled ')+'onclick="corFix(\'rival\','+d+')">'+(d>0?'+':'')+d+'</button>'}).join("")+'</span></div></div>';
+h+='<div class="panel"><h2>Historial</h2>';if(!(lg.data||[]).length)h+='<p class="empty">Todavía no hay correcciones.</p>';(lg.data||[]).forEach(function(g){var who=N[g.user_id],pl=N[g.player_id];h+='<div class="kv"><span>'+esc(who?(who.nickname||who.name):"?")+': '+esc(g.field=="rival"?"rival":(pl?(pl.nickname||pl.name):"?")+' '+g.field)+' C'+g.quarter+'</span><span>'+(g.delta>0?'+':'')+g.delta+' · '+new Date(g.created_at).toLocaleTimeString("es-ES",{hour:"2-digit",minute:"2-digit"})+'</span></div>'});
+el.innerHTML=h+'</div>'}
+async function corFix(f,d){var r=f=="rival"?await SB.rpc("correct_rival",{p_match:COR.mid,p_quarter:COR.q,p_delta:d}):await SB.rpc("correct_stat",{p_match:COR.mid,p_player:COR.pid,p_quarter:COR.q,p_field:f,p_delta:d});if(r.error){alert(r.error.message);return}await loadM();corDraw()}
 boot();
 </script>
 </body>
